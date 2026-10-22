@@ -73,13 +73,15 @@ Notes:
 ## 5. Run it
 Save the wizard's command, adding the port, config mount and extra variables. Use the quoting for your shell.
 
+The config is mounted at `/lmconfig.yaml` and passed by that absolute path, so it is found whatever the image's working directory is. Compare the image name, tag and arguments with the wizard's own Run command and prefer the wizard's where they differ ⚠.
+
 **Docker Desktop on Windows (PowerShell)**
 ```powershell
 docker run -d --name lmotel --restart unless-stopped `
   --env-file .\lm.env `
   -p 4318:4318 -p 13133:13133 `
   -v "${PWD}\lmconfig.yaml:/lmconfig.yaml" `
-  logicmonitor/lmotel --config lmconfig.yaml
+  logicmonitor/lmotel --config /lmconfig.yaml
 ```
 `lm.env` (git-ignored) holds the four required variables plus `LM_OTLP_ENDPOINT` and `LM_OTLP_BEARER`, one `NAME=value` per line, no quotes.
 
@@ -89,7 +91,7 @@ docker run -d --name lmotel --restart unless-stopped \
   --env-file ./lm.env \
   -p 4318:4318 -p 13133:13133 \
   -v "$PWD/lmconfig.yaml:/lmconfig.yaml" \
-  logicmonitor/lmotel --config lmconfig.yaml
+  logicmonitor/lmotel --config /lmconfig.yaml
 ```
 
 **Docker Compose (any flavor)**
@@ -102,7 +104,7 @@ services:
     env_file: ./lm.env
     ports: ["4318:4318", "13133:13133"]
     volumes: ["./lmconfig.yaml:/lmconfig.yaml:ro"]
-    command: ["--config", "lmconfig.yaml"]
+    command: ["--config", "/lmconfig.yaml"]
 ```
 
 ## 6. Platform notes
