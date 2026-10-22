@@ -13,10 +13,6 @@ not via LogicModules. There is no code, build or test harness yet -- only two do
 Its own git repository: github.com/PhilTheITGuy-USA/Proxmox-OTEL (private). The name follows the
 workspace's `<Product>-<Method>` exception for non-LogicModule projects (see `../CLAUDE.md`).
 
-The sibling `../Proxmox-LogicModule` is the existing collector-based (Groovy LogicModule) suite for
-the same product. It is the reference for Proxmox API knowledge and for how a finished suite is laid
-out; it is not a dependency of this project.
-
 ## Architecture (from the spec)
 
 Three independent paths -- keep them separate when building:
