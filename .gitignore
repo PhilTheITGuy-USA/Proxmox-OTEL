@@ -1,0 +1,12 @@
+# Local secrets -- LM bearer/API tokens and endpoints are never committed
+.env
+*.env
+secrets/
+
+# macOS / Windows directory metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+__pycache__/
+*.pyc
