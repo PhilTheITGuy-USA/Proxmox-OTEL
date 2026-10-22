@@ -53,3 +53,11 @@ runbook. The lab is a 2-node PVE cluster with VM and LXC guests, with collectors
 
 Any LogicMonitor REST API, dashboard JSON or PropertySource work here still goes through the
 `logicmonitor-modules` skill and its checks, per `../CLAUDE.md`.
+
+## References
+
+Official Proxmox VE sources -- prefer these over community reports when verifying PVE behaviour:
+
+- https://pve.proxmox.com/pve-docs/ -- admin guide and man pages (metric server, `pvesh`)
+- https://pve.proxmox.com/wiki/Main_Page -- Proxmox VE wiki
+- https://pve.proxmox.com/pve-docs/api-viewer/ -- PVE REST API viewer
