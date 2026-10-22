@@ -66,7 +66,7 @@ service:
 ```
 Notes:
 - Use the exporter block that LM generates under **More → OTel Metrics → Configure → Configure OTel collector** if it differs from the above.
-- Binding to `0.0.0.0` exposes an unauthenticated OTLP port: restrict 4318 to the PVE nodes with a firewall rule.
+- Binding to `0.0.0.0` exposes an unauthenticated OTLP port and the health-check port: restrict 4318 to the PVE nodes, and 13133 to the hosts that run health checks, with firewall rules.
 - If PVE metrics already carry `cluster` via `otel-resource-attributes`, remove the `resource` processor.
 - Also keep the wizard's own `lmextension`/`lmexporter` entries if Validate requires them ⚠.
 
@@ -106,7 +106,7 @@ services:
 ```
 
 ## 6. Platform notes
-- **Docker Desktop on Windows:** published ports bind on the Windows host; PVE nodes use the **host's LAN IP**, not the WSL/container IP. Add an inbound Windows Defender Firewall rule for TCP 4318 limited to the PVE subnet. Mount the config from a path under your user profile (shared with Docker Desktop). Keep Docker Desktop set to start at sign-in, or the gateway stops with the host.
+- **Docker Desktop on Windows:** published ports bind on the Windows host; PVE nodes use the **host's LAN IP**, not the WSL/container IP. Add inbound Windows Defender Firewall rules: TCP 4318 limited to the PVE subnet, TCP 13133 limited to your monitoring/admin hosts. Mount the config from a path under your user profile (shared with Docker Desktop). Keep Docker Desktop set to start at sign-in, or the gateway stops with the host.
 - **Podman / rootless:** ports below 1024 aren't used here; `:Z` may be needed on SELinux hosts for the config mount.
 - **Production:** run on a Linux host or VM, pin the image tag (`LOGICMONITOR_OTEL_VERSION`), and run two instances behind a load balancer for HA.
 

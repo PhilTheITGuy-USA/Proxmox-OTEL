@@ -31,7 +31,7 @@ Two independent paths; either can be deployed alone.
 - Deliverables: PromQL query set, dashboards, alert templates (node down, storage >85%, guest CPU sustained high).
 
 ## 5. Logs
-- Receiver: an LM Collector with syslog enabled (agent.conf `lmlogs.syslog.enabled=true`, or "Enable log collection for Syslog and SNMP trap" when adding a collector). Docs state UDP 514; **TCP support is unconfirmed**.
+- Receiver: an LM Collector with syslog enabled (agent.conf `lmlogs.syslog.enabled=true`, or "Enable log collection for Syslog and SNMP trap" when adding a collector). Transport is **UDP 514 only** (decision). UDP has no delivery guarantee: messages sent while the collector is unreachable or overloaded are lost, and that is accepted.
 - Senders: PVE nodes (rsyslog `imjournal`/journald forward), and any VM or LXC that should be searchable (their own rsyslog).
 - Syslog LogSource (type "LM Logs: SysLog"): filters (Application, Facility, Message, Severity), log fields (Application/Facility/Severity attributes, static `cluster` tag), resource mapping by IP (`system.ips`), hostname/FQDN (`system.hostname`) or static/regex.
 - Precedence: a LogSource applied to a monitored device beats one applied to the collector; a collector-applied LogSource beats the agent.conf property. Collector version gates: ≥ EA-35.200 apply-to-collector, ≥ 37.300 OR mapping, ≥ 40.700 complex filters. Collector-applied LogSources cannot use Auto-Balanced Collector Groups; only one Syslog LogSource per collector.
@@ -40,7 +40,7 @@ Two independent paths; either can be deployed alone.
 
 ## 6. Resource strategy
 - Metrics: nothing to create (satisfies the owner's rule that OTEL creates the entities).
-- Logs: map to resources that already exist (for example nodes monitored by the Proxmox LogicModule suite) or fall back to the per-collector backup resource. A bootstrap script that creates one LM resource per PVE node is **deferred**; build it only if the Phase 4 tests show mapping can't be done otherwise. Guests never get LM resources from this project.
+- Logs: map to resources that already exist (for example PVE nodes already monitored in the portal) or fall back to the per-collector backup resource. A bootstrap script that creates one LM resource per PVE node is **deferred**; build it only if the Phase 4 tests show mapping can't be done otherwise. Guests never get LM resources from this project.
 
 ## 7. Scalability
 - Metrics path is stateless and per-cluster; guest count affects series cardinality only. Gateway adds batching, enrichment and drop/aggregate rules for noisy families (per-disk blockstat).
@@ -64,14 +64,19 @@ pve/          metric-server setup script (pvesh), rsyslog snippets
 collector/    LM OTel Collector gateway config (+ docker-compose for the lab)
 logsource/    Syslog LogSource module source
 build/        build.py (assembles dist/)
-dist/         importable module and dashboard JSON (linted)
+dist/         built output (linted): module JSON at dist/*.json, dashboards at dist/dashboards/*.json
 lm/           dashboards, alert templates, PromQL set
 docs/         runbook, sizing guide
 results.md    test-plan results
 ```
 
 ## 11. Build and verification
-`build/build.py` assembles `dist/`; run the two skill checks from the repo root. Record verification per layer (local checks / portal import / live target) in `results.md` only. Lab: 2-node PVE cluster plus Docker Desktop.
+`build/build.py` assembles `dist/` from `logsource/` (modules → `dist/*.json`) and `lm/` (dashboards → `dist/dashboards/*.json`). Run the two skill checks from the repo root:
+```sh
+python ../logicmonitor-modules-skill/skill/scripts/lm_lint_module.py dist
+python ../logicmonitor-modules-skill/skill/scripts/lm_dashboards.py check dist/dashboards/*.json --modules dist
+```
+ Record verification per layer (local checks / portal import / live target) in `results.md` only. Lab: 2-node PVE cluster plus Docker Desktop.
 
 ## 12. Deployment
 - Metrics: apply the metric-server definition once per cluster (script or Ansible); verify with `journalctl -u pvestatd`.
@@ -82,8 +87,8 @@ results.md    test-plan results
 ## 13. Open risks (resolved by the test plan)
 1. OTel Metrics feature flag and exact OTLP endpoint on the portal.
 2. PVE payload compatibility with LM (temporality, naming, gzip, 1024-char header cap vs token length).
-3. `otel-headers` CLI input format.
-4. Syslog TCP support on the LM Collector; reliability of UDP under load.
+3. Whether `pvesh` accepts the base64 `otel-headers` / `otel-resource-attributes` value as-is, or expects plain JSON (the API schema says base64; community reports show JSON).
+4. UDP syslog loss under load and during collector restarts (UDP only by decision; measure, don't fix).
 5. Resource mapping for PVE nodes (existing resources vs backup resource).
 6. Series-count and rate limits at scale.
 7. Exchange acceptance of non-module companion content.

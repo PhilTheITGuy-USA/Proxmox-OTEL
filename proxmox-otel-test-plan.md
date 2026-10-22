@@ -14,7 +14,7 @@ Docker `otelcol` with `hostmetrics` → `otlphttp` (Bearer) to the LM endpoint; 
 Exit: metrics visible in LM.
 
 ## Phase 2: PVE direct metrics (single node)
-1. `pvesh create /cluster/metrics/server/lm-otlp --type opentelemetry --server <portal> --port 443 --otel-protocol https --otel-path <from Phase 0> --otel-compression gzip --otel-headers <base64 JSON> --otel-resource-attributes <base64 JSON: cluster=lab>`
+1. `pvesh create /cluster/metrics/server/lm-otlp --type opentelemetry --server <portal> --port 443 --otel-protocol https --otel-path <from Phase 0> --otel-compression gzip --otel-verify-ssl 1 --otel-headers <base64 JSON> --otel-resource-attributes <base64 JSON: cluster=lab>`
 2. Check `journalctl -u pvestatd` for push errors.
 3. Query `{__name__=~"proxmox_.*"}` in Explore.
 Exit: node, VM, LXC and storage families arrive with node/vmid/type labels; record the real push interval and any rejection reason.
@@ -25,8 +25,8 @@ Compare node CPU/memory, guest CPU/memory and storage used against the PVE UI; r
 Exit: values match the PVE UI within tolerance.
 
 ## Phase 4: Logs via syslog
-1. On the lab LM Collector enable syslog (`lmlogs.syslog.enabled=true`); confirm it listens on 514 UDP, and test whether TCP works.
-2. On each PVE node, add an rsyslog forward (journal → collector). Do the same on one VM and one LXC.
+1. On the lab LM Collector enable syslog (`lmlogs.syslog.enabled=true`); confirm it listens on UDP 514 (UDP only by design).
+2. On each PVE node, add an rsyslog UDP forward (journal → collector). Do the same on one VM and one LXC.
 3. Set the backup resource (`lmlogs.logsource.syslog.unmapped.resource`).
 4. Generate events (`logger`, restart `pveproxy`); check LM Logs.
 5. Create the Syslog LogSource (collector-applied) with IP/hostname mapping; test a mapped node, an unmapped guest and the backup resource.
@@ -38,7 +38,7 @@ Exit: logs from nodes and chosen guests land on the right resource (or the backu
 Build the dashboard and three alert rules (metric absent/node down, storage >85%, guest CPU sustained high); trigger each. Run `lm_dashboards.py check`.
 
 ## Phase 6: Scale and resilience
-Estimate series per guest; project to 1k/10k/50k guests; load-test with a synthetic OTLP generator directly and through a gateway; watch for 429s and limits. Failure test: block egress 5 minutes, restore, check metrics gap and syslog recovery.
+Estimate series per guest; project to 1k/10k/50k guests; load-test with a synthetic OTLP generator directly and through a gateway; watch for 429s and limits. Failure test: block egress 5 minutes, restore, check the metrics gap; syslog loss during the outage is accepted (UDP only), so record whether the LM Collector buffered anything and confirm forwarding resumes on restore.
 Exit: documented thresholds for when to add a gateway and extra collectors.
 
 ## Phase 7: Exchange packaging
