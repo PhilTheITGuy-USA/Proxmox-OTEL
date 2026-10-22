@@ -13,36 +13,45 @@ not via LogicModules. There is no code, build or test harness yet -- only two do
 Its own git repository: github.com/PhilTheITGuy-USA/Proxmox-OTEL (private). The name follows the
 workspace's `<Product>-<Method>` exception for non-LogicModule projects (see `../CLAUDE.md`).
 
-## Architecture (from the spec)
+## Architecture (from the spec, v2)
 
-Three independent paths -- keep them separate when building:
+Two independent paths -- keep them separate when building:
 
 1. **Metrics, direct:** PVE's cluster-wide OpenTelemetry metric server (`pvesh create
    /cluster/metrics/server/<id> --type opentelemetry ...`) pushes OTLP/HTTP + gzip + Bearer straight
    to LM's OTLP metrics endpoint. No collector, no LM resources: series are flat, identified by
    attributes (`node`, `vmid`, `type`, plus a `cluster` resource attribute set per cluster).
-2. **Logs, via collector:** node journald -> rsyslog `imjournal`/`omfwd` (TCP, RFC5424) ->
-   `otelcol` `syslog` receiver -> `logicmonitor` exporter -> LM log ingest.
-3. **Resource bootstrap:** an idempotent Python script (LM REST API) that lists nodes from the PVE
-   API and creates one LM resource per PVE node (`system.displayname`, `pve.cluster`, `pve.node`).
-   It exists only because LM log ingest needs a pre-existing resource (error 4001, no auto-create).
-   Guests never get LM resources.
+   Optional at scale: the LM OTel Collector as a per-site gateway (otlp receiver -> batch/resource/
+   transform -> otlphttp) for batching, enrichment and cardinality control.
+2. **Logs, native syslog:** PVE nodes (and chosen VMs/LXCs) forward syslog with rsyslog to an LM
+   Collector with syslog enabled; a Syslog LogSource handles filters, log fields and resource mapping
+   (IP/hostname). Unmapped logs fall back to the collector's backup resource. No custom OTel
+   collector build. The contrib `logicmonitor` exporter and the log ingest API are documented
+   fallbacks only.
 
-Optional at scale: one collector gateway per cluster/site in front of LM for batching, attribute
-enrichment and cardinality control (`otlphttp` exporter).
+A bootstrap script that creates LM resources per PVE node is **deferred** -- build it only if
+Phase 4 shows mapping can't be done with existing resources or the backup resource.
 
 ## Constraints to respect
 
-- Owner's rule: OTEL should create the monitored entities wherever possible; the bootstrap script is
-  the documented exception for logs.
+- Owner's rule: OTEL should create the monitored entities wherever possible (metrics need no resources;
+  logs map to existing resources or the backup resource).
 - Known PVE quirks to account for in queries/dashboards: `*_cpu_percent` is a 0-1 ratio; node PSI is
   not emitted. Treat these as unverified until Phase 3 of the test plan confirms them.
-- LM log limits: 8 MB/payload, 1 MB/event, +/-3 h timestamp window, 240K req/min.
+- Syslog LogSource: collector >= EA-35.200 to apply to a collector, >= 37.300 for OR mapping, >= 40.700
+  for complex filters; one Syslog LogSource per collector; no Auto-Balanced Collector Groups. Docs
+  state UDP 514; TCP is unconfirmed. (Log ingest API limits, if used as fallback: 8 MB/payload,
+  1 MB/event, +/-3 h timestamp window.)
+- PVE `otel-headers` / `otel-resource-attributes` are base64 JSON, max 1024 chars each (official API
+  schema); the admin guide itself documents no OTel options, so push interval and metric names stay
+  unverified until Phase 2/3.
 - Secrets: endpoint and tokens are recorded during Phase 0 but never committed; the Exchange package
   carries placeholders only. Note that PVE stores `otel-headers` (the bearer token) base64-encoded in
   `/etc/pve/status.cfg`, readable by cluster admins.
-- Exchange packaging form for non-LogicModule content is an open item (spec section 8) -- don't
-  assume the LogicModule packaging conventions apply.
+- The Syslog LogSource is a LogicModule and follows the module conventions (lint `dist/`); other
+  content ships as companion docs. Acceptance of non-module content is an open item (spec section 9).
+  The `logicmonitor-modules` skill documents script LogSources only -- capture the syslog LogSource
+  export from a portal and add it to the skill.
 
 ## Working the test plan
 
