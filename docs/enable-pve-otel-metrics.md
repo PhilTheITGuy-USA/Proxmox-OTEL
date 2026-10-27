@@ -20,7 +20,9 @@ Status: written from LogicMonitor docs and the official PVE API schema; **not ye
 
 Rotation: generating a new token invalidates the old one; update every sender (all PVE clusters and gateways) afterward.
 
-## 3. Build the `otel-headers` value
+## 3. CLI only: build the base64 `otel-headers` value
+> **GUI users: skip this section.** The GUI's header and attribute fields take plain JSON typed in as is (section 5). Never paste these shell commands into a PVE field.
+
 PVE takes headers as **JSON, base64-encoded, max 1024 characters** (official API schema).
 
 Linux/macOS (or a PVE node):
@@ -57,7 +59,7 @@ The definition is cluster-wide: one entry covers all nodes.
 **GUI**
 1. Datacenter → **Metric Server → Add → OpenTelemetry**.
 2. Fill **Name** (for example `lm-otlp`), **Server**, **Port**, **Protocol**, **Path**, and enable **Verify SSL** for LM.
-3. Add the headers and resource attributes if the form offers them; otherwise use the CLI. ⚠
+3. Expand **Advanced JSON Configuration**. In **HTTP Headers (JSON)** type `{"Authorization":"Bearer <token>"}` (your real token) and in **Resource Attributes (JSON)** type `{"cluster":"<cluster-name>"}`. One flat JSON object per field, typed as is: no shell commands, no base64 ⚠.
 4. Click **Create**.
 
 **CLI (any node)**

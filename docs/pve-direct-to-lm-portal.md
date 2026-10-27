@@ -23,7 +23,9 @@ Status: written from LogicMonitor documentation and the official PVE API schema;
 
 Rotation: generating a new token invalidates the old one on every cluster at once. Plan the change window (section 8).
 
-## 3. Build the `otel-headers` value
+## 3. CLI only: build the base64 `otel-headers` value
+> **GUI users: skip this section.** The GUI's header and attribute fields take plain JSON typed in as is (section 5). Never paste these shell commands into a PVE field.
+
 PVE takes headers as **JSON, base64-encoded, max 1024 characters** (official API schema). Build it on a PVE node without leaving the token in shell history:
 
 ```bash
@@ -68,7 +70,7 @@ The CLI is expected to take the base64 strings as-is ⚠ (community posts show o
 **GUI**
 1. Datacenter → **Metric Server → Add → OpenTelemetry**.
 2. Fill **Name** (`lm-otlp`), **Server** (`<portalname>.logicmonitor.com`, hostname only), **Port** (`443`; the dialog defaults to 4318), **Protocol** (`HTTPS`), **Path** (`/rest/api/v1/metrics`); keep **Enabled**, **Verify SSL** and **Gzip** on.
-3. Expand **Advanced JSON Configuration** and add the headers (`{"Authorization":"Bearer <token>"}`) and resource attributes (`{"cluster":"<cluster-name>"}`) as plain JSON; the GUI is expected to base64-encode them itself, so don't paste the base64 values from section 3 here ⚠. If the section doesn't accept them, add them afterwards with `pvesh set` (section 7).
+3. Expand **Advanced JSON Configuration**. In **HTTP Headers (JSON)** type exactly `{"Authorization":"Bearer <token>"}`, with your real token in place of `<token>`. In **Resource Attributes (JSON)** type `{"cluster":"<cluster-name>"}`. Each field takes one flat JSON object typed as is: no shell commands, no `read`/`printf`/`base64` lines, no base64 values. PVE is expected to store them base64-encoded itself ⚠. A red "Invalid JSON format" outline means the text isn't a single valid JSON object.
 4. Click **Create**.
 
 The config is stored in `/etc/pve/status.cfg`. The base64 headers, including the bearer token, are readable by cluster admins.
