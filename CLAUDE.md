@@ -11,12 +11,17 @@ only documents:
 - `proxmox-otel-spec.md` -- the design (v2): decisions, architecture, repo layout (section 10),
   build (11), open risks (13).
 - `proxmox-otel-test-plan.md` -- phased lab plan (Phase 0-7) that resolves those risks.
-- `docs/` -- runbooks: `enable-pve-otel-metrics.md` (PVE metric server, LM endpoint and token) and
-  `deploy-lm-otel-collector-docker.md` (optional metrics gateway). Both untested; their unverified
+- `docs/` -- runbooks: `enable-pve-otel-metrics.md` (PVE metric server, LM endpoint and token),
+  `pve-direct-to-lm-portal.md` (end-to-end direct push, no gateway) and
+  `deploy-lm-otel-collector-docker.md` (optional metrics gateway). All untested; their unverified
   steps are marked with a warning sign and tied to a test-plan phase.
 
 Its own git repository: github.com/PhilTheITGuy-USA/Proxmox-OTEL (private). The name follows the
 workspace's `<Product>-<Method>` exception for non-LogicModule projects (see `../CLAUDE.md`).
+
+Before every push, run `python ../lab-scrub/check.py` from the repo root (workspace rule). Runbooks
+name the portal as `<account>.logicmonitor.com`, never the real portal; real lab details go in a
+gitignored `CLAUDE.local.md`.
 
 ## Architecture (from the spec, v2)
 

@@ -10,3 +10,6 @@ desktop.ini
 
 __pycache__/
 *.pyc
+
+# Local-only lab details (workspace scrub rule)
+CLAUDE.local.md
