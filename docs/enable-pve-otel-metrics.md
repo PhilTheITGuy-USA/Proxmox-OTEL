@@ -8,7 +8,7 @@ Status: written from LogicMonitor docs and the official PVE API schema; **not ye
 - Proxmox VE 9.x with the OpenTelemetry metric server type (Datacenter → Metric Server → Add shows "OpenTelemetry"). Check: `pveversion`.
 - LM portal with the **OpenTelemetry Metrics** feature enabled (feature flag) ⚠.
 - An LM user with **Manage** permission for OpenTelemetry Metrics (Settings role permissions). Query users need **Read**.
-- Network path: PVE nodes → LM (`https://<account>.logicmonitor.com`, 443) or → your gateway (see `deploy-lm-otel-collector-docker.md`).
+- Network path: PVE nodes → LM (`https://<portalname>.logicmonitor.com`, 443) or → your gateway (see `deploy-lm-otel-collector-docker.md`).
 
 ## 2. Find the OTLP endpoint and create the bearer token (LM portal)
 1. Sign in to LM and go to **More → OTel Metrics**.

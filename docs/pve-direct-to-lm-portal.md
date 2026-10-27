@@ -1,6 +1,6 @@
 # Send Proxmox VE metrics directly to your LogicMonitor portal
 
-Purpose: configure PVE's OpenTelemetry metric server to push straight to the LogicMonitor (LM) portal, with no collector or gateway. Portal used in this runbook: `https://<account>.logicmonitor.com/`.
+Purpose: configure PVE's OpenTelemetry metric server to push straight to the LogicMonitor (LM) portal, with no collector or gateway. Portal used in this runbook: `https://<portalname>.logicmonitor.com/`.
 
 Use this when the customer has a small number of clusters. For many clusters or very large guest counts, see `deploy-lm-otel-collector-docker.md` (gateway) and the decision notes in `proxmox-otel-spec.md`.
 
@@ -8,13 +8,13 @@ Status: written from LogicMonitor documentation and the official PVE API schema;
 
 ## 1. Prerequisites
 - Proxmox VE 9.x with the OpenTelemetry metric server type. Check on a node: `pveversion`, and confirm Datacenter → Metric Server → Add offers **OpenTelemetry**.
-- LM portal `<account>` with the **OpenTelemetry Metrics** feature enabled (feature flag) ⚠. If **More → OTel Metrics** is missing from the menu, ask LM support/your account team to enable it.
+- LM portal `<portalname>` with the **OpenTelemetry Metrics** feature enabled (feature flag) ⚠. If **More → OTel Metrics** is missing from the menu, ask LM support/your account team to enable it.
 - An LM user with **Manage** permission for OpenTelemetry Metrics (Settings role permissions). Use a dedicated API-only user with minimum rights.
-- Network: every PVE node must reach `<account>.logicmonitor.com` on TCP 443 (PVE sends from the node that runs the stats daemon; allow all nodes). Proxy use is not documented for this feature ⚠.
+- Network: every PVE node must reach `<portalname>.logicmonitor.com` on TCP 443 (PVE sends from the node that runs the stats daemon; allow all nodes). Proxy use is not documented for this feature ⚠.
 - Root (or `Sys.Modify` on `/`) on the cluster to add a metric server.
 
 ## 2. Find the OTLP endpoint and create the bearer token (LM portal)
-1. Sign in to `https://<account>.logicmonitor.com/`.
+1. Sign in to `https://<portalname>.logicmonitor.com/`.
 2. Go to **More → OTel Metrics → Configure → View connection details** (page title: *Connect an OTel Metrics Source*).
 3. Copy the **OTLP Ingestion Endpoint**. Note its scheme, host, port and path (used in section 4). The host is expected to be on your portal domain ⚠; use exactly what the page shows.
 4. In **User**, choose the dedicated API-only user.
@@ -40,7 +40,7 @@ Use a unique `cluster` value per cluster. If `OTEL_HEADERS` is longer than 1024 
 
 ## 4. Split the endpoint into PVE fields
 
-| PVE field | Value for `<account>` |
+| PVE field | Value for `<portalname>` |
 |---|---|
 | `--server` | host from the endpoint (DNS name) ⚠ |
 | `--port` | port from the endpoint (443 if none shown) |
@@ -101,7 +101,7 @@ pvesh delete /cluster/metrics/server/lm-otlp               # remove
 ## 8. Troubleshooting
 - `401/403`: wrong or regenerated token, or the user lacks OTel Metrics permission.
 - `404`: wrong path; copy it exactly from **View connection details**.
-- Nothing in LM and no errors: feature flag not enabled, or the node can't reach port 443 (`curl -I https://<account>.logicmonitor.com/`).
+- Nothing in LM and no errors: feature flag not enabled, or the node can't reach port 443 (`curl -I https://<portalname>.logicmonitor.com/`).
 - Timeouts: raise `--otel-timeout` (max 10) or reduce body size with `--otel-max-body-size`.
 - Headers rejected for length: token too long for the 1024-character field; use a gateway.
 

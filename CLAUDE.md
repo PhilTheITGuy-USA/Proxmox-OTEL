@@ -20,8 +20,8 @@ Its own git repository: github.com/PhilTheITGuy-USA/Proxmox-OTEL (private). The 
 workspace's `<Product>-<Method>` exception for non-LogicModule projects (see `../CLAUDE.md`).
 
 Before every push, run `python ../lab-scrub/check.py` from the repo root (workspace rule). Runbooks
-name the portal as `<account>.logicmonitor.com`, never the real portal; real lab details go in a
-gitignored `CLAUDE.local.md`.
+name the portal as `<portalname>.logicmonitor.com`, never the real portal -- `check.py` blocks any
+`lm*.logicmonitor.com` host. Real lab details go in a gitignored `CLAUDE.local.md`.
 
 ## Architecture (from the spec, v2)
 

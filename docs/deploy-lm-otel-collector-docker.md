@@ -7,7 +7,7 @@ Status: written from LogicMonitor documentation; **not yet tested in the lab**. 
 ## 1. Prerequisites
 - A Docker engine on a host the PVE nodes can reach over the network. Tested targets (to confirm): Docker Desktop on Windows (WSL2 backend); the same commands apply to Docker Engine on Linux, Podman (`podman` instead of `docker`), and Rancher Desktop.
 - LM portal access with permission to add OpenTelemetry Collectors.
-- Outbound HTTPS (443) from the Docker host to `https://<account>.logicmonitor.com`.
+- Outbound HTTPS (443) from the Docker host to `https://<portalname>.logicmonitor.com`.
 - Inbound TCP **4318** (OTLP/HTTP) from the PVE nodes to the Docker host.
 - An **API-only LM user with minimum privileges** for the collector (the wizard creates an Access ID/Key for it).
 
