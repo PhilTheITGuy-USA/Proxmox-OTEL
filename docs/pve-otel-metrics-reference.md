@@ -98,7 +98,7 @@ Always group or filter by `proxmox_cluster` as well as `vmid` in multi-cluster e
 Not possible from these metrics alone. LM topology maps are built from resources that carry external resource IDs (ERIs), linked by TopologySource LogicModules; OTel metrics create no resources. Options: model PVE with a PropertySource (ERIs) plus a TopologySource that reads the PVE API (guest → node → cluster, guest → storage), or use label-grouped dashboards as a logical view without maps or root-cause suppression. See the design spec.
 
 ## 7. Open checks
-1. Count names to confirm completeness: node is confirmed (53). Still to check with `count(count by (__name__) ({__name__=~"proxmox_storage_.*"}))` (6 seen).
+1. Name counts are confirmed by count queries: node 53, guest 22, storage 6 (QEMU balloon and block-stat names are in addition to the guest 22).
 2. Capture storage labels.
 3. Confirm units per section 4 against the PVE UI (memory, disk, network, uptime, node CPU).
 4. Measure the real push interval (series point spacing in the graph).
