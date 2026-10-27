@@ -28,7 +28,7 @@ A guest that migrates changes its `node` label, which starts a new series; queri
 
 ## 3. Metric families
 ### 3.1 Node (`proxmox_node_*`, label `node`)
-Seen in the lab (53 names ⚠ the first listing was capped, so completeness is pending a count check):
+Seen in the lab (53 names, confirmed by a count query):
 - **CPU** `cpustat_*`: `cpu`, `cpus` (core count), `used`, `sum`, `total`, `avg1`, `avg5`, `avg15`, and the time counters `user_total`, `system_total`, `nice_total`, `idle_total`, `iowait_total`, `wait_total`, `irq_total`, `softirq_total`, `steal_total`, `guest_total`, `guest_nice`.
 - **Memory** `memory_*`: `memtotal`, `memused`, `memfree`, `memavailable`, `memshared`, `swaptotal`, `swapused`, `swapfree`, `arcsize`, `arcmax`, `arcmin` (ZFS ARC).
 - **Network:** `network_receive_total`, `network_transmit_total`.
@@ -98,7 +98,7 @@ Always group or filter by `proxmox_cluster` as well as `vmid` in multi-cluster e
 Not possible from these metrics alone. LM topology maps are built from resources that carry external resource IDs (ERIs), linked by TopologySource LogicModules; OTel metrics create no resources. Options: model PVE with a PropertySource (ERIs) plus a TopologySource that reads the PVE API (guest → node → cluster, guest → storage), or use label-grouped dashboards as a logical view without maps or root-cause suppression. See the design spec.
 
 ## 7. Open checks
-1. Count names to confirm completeness: `count(count by (__name__) ({__name__=~"proxmox_node_.*"}))` (53 seen), `proxmox_storage_.*` (6 seen), and all `proxmox_.*`.
+1. Count names to confirm completeness: node is confirmed (53). Still to check with `count(count by (__name__) ({__name__=~"proxmox_storage_.*"}))` (6 seen).
 2. Capture storage labels.
 3. Confirm units per section 4 against the PVE UI (memory, disk, network, uptime, node CPU).
 4. Measure the real push interval (series point spacing in the graph).
