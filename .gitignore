@@ -13,3 +13,6 @@ __pycache__/
 
 # Local-only lab details (workspace scrub rule)
 CLAUDE.local.md
+
+# Word export of the guide -- kept local, not versioned
+Proxmox-VE-LogicMonitor-OTel-Guide.docx
