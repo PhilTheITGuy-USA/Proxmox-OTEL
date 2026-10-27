@@ -27,10 +27,10 @@ Create a dedicated, least-privilege user rather than reusing an administrator. T
    - **Resources**: all, **Manage**.
    - **OTLP Metrics / OpenTelemetry Metrics**: **Manage** (needed to get the bearer token; querying only needs **Read**).
    - **Allow Creation of API Token**: enabled.
-2. **Users → Add** an API-only user (for example `otel-collector-svc`) with that role. Give it a password too: the wizard's user picker may need a normal user that can sign in ⚠.
+2. **Users → Add** an API-only user (for example `otel-collector-svc`) with that role.
 3. Do **not** use an administrator account for the collector. LM documents that administrator roles can't install it.
 
-Observed in the lab (cause unconfirmed): at first the wizard's user list showed only the two administrator accounts, searching for the API-only user returned *No options*, and the wizard won't continue without a user. Later the same portal began listing the new user. If the list is wrong: re-check the role permissions above, make sure the user is active, sign out and back in, wait and refresh, and if it persists open an LM support case (docs say API-only users should be selectable).
+Allow time after creating the role and user: the portal can take an hour or more to show them in the wizard's user list.
 
 ## 3. LogicMonitor: add the collector with the wizard
 1. **Settings → OpenTelemetry Collectors → Add**.
@@ -245,7 +245,6 @@ Click **Create**. PVE runs a connection test (an empty POST); success means the 
 - **400 `server: invalid format`:** the Server field contained `https://` or a path; use host or IP only.
 - **PVE "Invalid JSON format" in the headers/attributes boxes:** shell commands or base64 were pasted; the GUI wants plain JSON.
 - **Wizard editor: *All mapping items must start at the same column*:** mixed indentation; fix the spaces so sibling keys line up.
-- **Wizard user list shows only administrators / *No options*:** see section 2.
 - **Container starts but LM data never arrives:** `LM_OTLP_BEARER` missing from `lm.env`, token regenerated, `metrics/pve` pipeline missing, or the OTel Metrics feature flag isn't enabled.
 - **401/403 in `docker logs`:** wrong or rotated bearer token, or the user lacks OTLP Metrics permission.
 - **Connection refused / timeout from PVE:** wrong host IP (use the LAN IP, not the WSL address), firewall rule missing, or the container isn't published on 4318.
