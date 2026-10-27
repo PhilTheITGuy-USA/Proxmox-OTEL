@@ -12,8 +12,8 @@ only documents:
   build (11), open risks (13).
 - `proxmox-otel-test-plan.md` -- phased lab plan (Phase 0-7) that resolves those risks.
 - `docs/` -- runbooks: `enable-pve-otel-metrics.md` (PVE metric server, LM endpoint and token),
-  `pve-direct-to-lm-portal.md` (end-to-end direct push, no gateway) and
-  `deploy-lm-otel-collector-docker.md` (optional metrics gateway). All untested; their unverified
+  `pve-direct-to-lm-portal.md` (direct push: blocked today, see Architecture; keep for when PVE adds protobuf) and
+  `deploy-lm-otel-collector-docker.md` (metrics gateway, required). All untested; their unverified
   steps are marked with a warning sign and tied to a test-plan phase.
 
 Its own git repository: github.com/PhilTheITGuy-USA/Proxmox-OTEL (private). The name follows the
@@ -27,11 +27,11 @@ name the portal as `<portalname>.logicmonitor.com`, never the real portal -- `ch
 
 Two independent paths -- keep them separate when building:
 
-1. **Metrics, direct:** PVE's cluster-wide OpenTelemetry metric server (`pvesh create
+1. **Metrics, via the LM OTel Collector gateway** (direct push is blocked: PVE sends OTLP JSON only, LM's endpoint needs protobuf and returns 415 -- observed 2026-10-27). The PVE metric server pushes to the gateway instead of the portal; the gateway re-exports protobuf to LM. The description below is the direct design, kept for when PVE adds protobuf: PVE's cluster-wide OpenTelemetry metric server (`pvesh create
    /cluster/metrics/server/<id> --type opentelemetry ...`) pushes OTLP/HTTP + gzip + Bearer straight
    to LM's OTLP metrics endpoint. No collector, no LM resources: series are flat, identified by
    attributes (`node`, `vmid`, `type`, plus a `cluster` resource attribute set per cluster).
-   Optional at scale: the LM OTel Collector as a per-site gateway (otlp receiver -> batch/resource/
+   Gateway (required today): the LM OTel Collector as a per-site gateway (otlp receiver -> batch/resource/
    transform -> otlphttp) for batching, enrichment and cardinality control.
 2. **Logs, native syslog:** PVE nodes (and chosen VMs/LXCs) forward syslog with rsyslog to an LM
    Collector with syslog enabled; a Syslog LogSource handles filters, log fields and resource mapping

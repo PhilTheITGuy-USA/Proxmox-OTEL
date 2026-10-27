@@ -1,5 +1,7 @@
 # Send Proxmox VE metrics directly to your LogicMonitor portal
 
+> **Status: does not work today (observed 2026-10-27).** PVE's OpenTelemetry plugin sends OTLP **JSON** (`Content-Type: application/json`) only. LM's OTLP metrics endpoint accepts OTLP HTTP/protobuf and returns `415 Unsupported Media Type` to PVE's connection test when you click Create. Use the gateway runbook (`deploy-lm-otel-collector-docker.md`), where the collector converts JSON to protobuf. Keep this runbook for when PVE adds protobuf support (a feature request is reported on the Proxmox Bugzilla, #7592).
+
 Purpose: configure PVE's OpenTelemetry metric server to push straight to the LogicMonitor (LM) portal, with no collector or gateway. Portal used in this runbook: `https://<portalname>.logicmonitor.com/`.
 
 Use this when the customer has a small number of clusters. For many clusters or very large guest counts, see `deploy-lm-otel-collector-docker.md` (gateway) and the decision notes in `proxmox-otel-spec.md`.

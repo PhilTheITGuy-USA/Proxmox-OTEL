@@ -10,14 +10,14 @@ Get Proxmox VE (PVE) metrics and logs into LogicMonitor (LM), using OpenTelemetr
 | Question | Decision | Why |
 |---|---|---|
 | Direct trace forwarding (`/rest/api/v1/traces`)? | **Rejected** | Traces only; PVE emits metrics. |
-| LM OTel Collector? | **Yes, as the optional metrics gateway** | v7.0 (OTel 0.154) has otlp receiver; batch, resource, attributes, transform, filter, cumulativetodelta, metricstransform processors; otlphttp exporter. Managed from the portal. |
-| Metrics path | **PVE → LM OTLP endpoint directly**; gateway only at scale | LM OTel Metrics accepts OTLP/HTTP protobuf + Bearer; no collector or resource registration needed. |
+| LM OTel Collector? | **Yes, required as the metrics gateway** | v7.0 (OTel 0.154) has the otlp receiver (accepts JSON and protobuf); batch, resource, attributes, transform, filter, cumulativetodelta, metricstransform processors; otlphttp exporter (sends protobuf). Managed from the portal. |
+| Metrics path | **PVE → LM OTel Collector gateway → LM OTLP endpoint** (gateway required) | PVE's plugin sends OTLP **JSON** only; LM's OTLP metrics endpoint takes OTLP HTTP/protobuf and returned `415 Unsupported Media Type` to PVE's connection test (observed 2026-10-27). The collector converts JSON to protobuf. Direct push becomes possible only if PVE adds protobuf (Proxmox Bugzilla #7592, reported). |
 | Logs path | **Syslog from hosts/VMs/LXCs → LM Collector Syslog LogSource** | Native and recommended by LM; the LM Collector's syslog support has resource mapping, filters and fallback; no custom collector build; the LogSource is a LogicModule so it fits the Exchange. The LM-wrapped OTel Collector has no syslog/journald receivers, and the contrib `logicmonitor` exporter requires a self-managed build. |
 | Custom OTel collector build (OCB) for logs | **Dropped** (kept as documented fallback) | Not needed if syslog tests pass. |
 
 ## 3. Architecture
 ```
-PVE cluster ──OTLP/HTTP+gzip+Bearer──► [optional LM OTel Collector gateway] ──► LM OTLP metrics endpoint
+PVE cluster ──OTLP/HTTP+gzip+Bearer──► [LM OTel Collector gateway: JSON→protobuf] ──► LM OTLP metrics endpoint
 PVE nodes / VMs / LXCs ──syslog (rsyslog)──► LM Collector (Syslog LogSource) ──► LM Logs
 ```
 Two independent paths; either can be deployed alone.
@@ -80,7 +80,7 @@ python ../logicmonitor-modules-skill/skill/scripts/lm_dashboards.py check dist/d
 
 ## 12. Deployment
 - Metrics: apply the metric-server definition once per cluster (script or Ansible); verify with `journalctl -u pvestatd`.
-- Gateway (optional): LM OTel Collector installed from the portal wizard (Docker/Linux), one per site, two behind a load balancer for HA.
+- Gateway (required): LM OTel Collector installed from the portal wizard (Docker/Linux), one per site, two behind a load balancer for HA.
 - Logs: enable syslog on the site's LM Collector, import the LogSource, push the rsyslog snippet to nodes (and chosen guests), then verify mapping.
 - Upgrades/rollback: metric server can be disabled with `--disable 1`; remove the rsyslog snippet to stop logs.
 

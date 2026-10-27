@@ -1,6 +1,6 @@
 # Deploy the LogicMonitor OTel Collector in Docker
 
-Purpose: run the LM OTel Collector as an optional **metrics gateway** between Proxmox VE and LogicMonitor (LM). Skip this runbook if PVE pushes directly to LM (see `enable-pve-otel-metrics.md`).
+Purpose: run the LM OTel Collector as the **metrics gateway** between Proxmox VE and LogicMonitor (LM). It is required today: PVE sends OTLP JSON only, LM's metrics endpoint accepts protobuf only (direct push returns 415), and the collector converts between them. See `enable-pve-otel-metrics.md` for the PVE side.
 
 Status: written from LogicMonitor documentation; **not yet tested in the lab**. Items marked ⚠ are unverified and are checked in test-plan Phase 2b.
 

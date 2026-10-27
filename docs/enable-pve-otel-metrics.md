@@ -1,5 +1,7 @@
 # Enable OpenTelemetry metrics in Proxmox VE → LogicMonitor
 
+> **Direct push to the LM portal currently fails with 415** (PVE sends JSON; LM needs protobuf). For now point PVE at the gateway: `--server <gateway host> --port 4318 --otel-protocol http --otel-path /v1/metrics`, with no bearer header (the gateway holds the token). See `deploy-lm-otel-collector-docker.md`.
+
 Purpose: turn on PVE's OpenTelemetry metric server, find LogicMonitor's OTLP endpoint, and create the bearer token.
 
 Status: written from LogicMonitor docs and the official PVE API schema; **not yet tested in the lab**. Items marked ⚠ are verified in test-plan Phase 0/2.

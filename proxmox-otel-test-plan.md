@@ -18,7 +18,7 @@ Exit: metrics visible in LM.
 2. Check `journalctl -u pvestatd` for push errors.
 3. Query `{__name__=~"proxmox_.*"}` in Explore.
 Exit: node, VM, LXC and storage families arrive with node/vmid/type labels; record the real push interval and any rejection reason.
-Fallback 2b: PVE → LM OTel Collector gateway (Docker, 4318) → LM.
+**Result 2026-10-27:** direct push failed on Create with `415 Unsupported Media Type` (PVE sends OTLP JSON; LM requires protobuf). Phase 2b is now the primary path: PVE → LM OTel Collector gateway (Docker, 4318) → LM. Re-test direct push if PVE adds protobuf.
 
 ## Phase 3: Data quality
 Compare node CPU/memory, guest CPU/memory and storage used against the PVE UI; record unit handling (0–1 ratios) and needed PromQL transforms; add node 2 and confirm `cluster` separation.
