@@ -1,0 +1,78 @@
+receivers:
+  hostmetrics:
+    collection_interval: 5m
+    scrapers:
+      cpu:
+      disk:
+      filesystem:
+        include_virtual_filesystems: true
+      memory:
+      network:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "US-West"
+          scrape_interval: 5m
+          static_configs:
+            - targets: ["0.0.0.0:8888"]
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+processors:
+  batch:
+    send_batch_size: 4000
+    send_batch_max_size: 4000
+    timeout: 1000ms
+  memory_limiter:
+    check_interval: 60s
+    limit_mib: 200
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 10000
+    policies:
+      [
+        {
+          name: sample_error_http,
+          type: numeric_attribute,
+          numeric_attribute: {key: http.status_code, min_value: 300, max_value: 500}
+        },
+        {
+          name: sample_error_grpc,
+          type: numeric_attribute,
+          numeric_attribute: {key: rpc.grpc.status_code, min_value: 1, max_value: 16}
+        }
+      ]
+  probabilistic_sampler:
+    sampling_percentage: 10
+exporters:
+  lmexporter:
+    url: https://${LOGICMONITOR_ACCOUNT}.logicmonitor.com/rest
+  file:
+    path: ./fileout.json
+  otlphttp/lm:
+    metrics_endpoint: https://${LOGICMONITOR_ACCOUNT}.logicmonitor.com/rest/api/v1/metrics
+    headers:
+      Authorization: Bearer ${LM_OTLP_BEARER}
+    compression: gzip
+extensions:
+  lmextension:
+    properties:
+      system.categories: lmotel
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions: [lmextension,health_check]
+  pipelines:
+    traces:
+      receivers : [ otlp ]
+      processors: [probabilistic_sampler,batch]
+      exporters : [lmexporter]
+    metrics:
+      receivers: [prometheus, hostmetrics]
+      exporters: [lmexporter]
+    metrics/pve:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/lm]
