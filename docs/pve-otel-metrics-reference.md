@@ -21,6 +21,7 @@ Status: names and labels below were read from LM Explore. Items marked ⚠ are u
 | `type` | guest | `qemu` or `lxc` |
 | `vmid` | guest | guest ID; **unique only within a cluster**, so always pair with `proxmox_cluster` |
 | `name` | guest | guest name |
+| `storage` | storage | PVE storage ID |
 | `service_name` | all | `proxmox-ve` |
 | `service_version` | all | PVE version per node, for example `9.2.3/<build>`; nodes can differ during upgrades |
 
@@ -48,7 +49,7 @@ Seen in the lab (53 names, confirmed by a count query):
 - **QEMU only (1 series each in the lab):** `balloon`, `freemem`, `memhost`, `ballooninfo_*` (actual, max_mem, total_mem, free_mem, last_update, page faults, swap in/out), and `blockstat_<disk>_*` per attached disk (for example `efidisk0`, `pflash0`): read/write operations, bytes, merged, timing, failed and invalid operation counters.
 
 ### 3.3 Storage (`proxmox_storage_*`)
-`total`, `used`, `avail`, `active`, `enabled`, `shared`. Storage label names ⚠ not yet captured; check before writing alert filters.
+`total`, `used`, `avail`, `active`, `enabled`, `shared`. Labels: `storage` (the PVE storage ID, for example `local`, `local-lvm`, `media01-usb`) plus the common labels; there is no `type` label. One series per node per storage, so a storage visible on several nodes (shared, or the same ID such as `local` on every node) appears once per node: group by `proxmox_cluster, node, storage` for per-node views, and use `max by (proxmox_cluster, storage)` to avoid double counting shared storage ⚠ (shared behaviour not yet checked).
 
 ## 4. Units and scale
 | Metric | Observed or expected | Status |
@@ -59,7 +60,7 @@ Seen in the lab (53 names, confirmed by a count query):
 | `proxmox_vm_uptime`, `proxmox_node_uptime` | seconds | ⚠ |
 | `proxmox_node_cpustat_*_total` | cumulative CPU time counters (seconds in community lists) | ⚠ |
 | `proxmox_node_memory_*` | bytes | ⚠ |
-| `proxmox_storage_*` sizes | bytes | ⚠ |
+| `proxmox_storage_*` sizes | bytes (lab `used`: 6,691,302,690,816 for `media01-usb`, about 6.1 TiB, plausible for a USB disk) | ⚠ compare with the PVE UI |
 | `proxmox_storage_active`, `enabled`, `shared` | 0/1 flags | ⚠ |
 | PSI `pressure*` | percentage-style values (community) | ⚠ |
 
@@ -78,7 +79,7 @@ proxmox_vm_mem / proxmox_vm_maxmem * 100                             # ⚠
 # Guest network throughput (bytes/s)
 rate(proxmox_vm_netin_total[5m])                                     # ⚠
 
-# Storage used %
+# Storage used % (labels match, so the division pairs per node and storage)
 proxmox_storage_used / proxmox_storage_total * 100                   # ⚠
 
 # Storage inactive
@@ -99,7 +100,7 @@ Not possible from these metrics alone. LM topology maps are built from resources
 
 ## 7. Open checks
 1. Name counts are confirmed by count queries: node 53, guest 22, storage 6 (QEMU balloon and block-stat names are in addition to the guest 22).
-2. Capture storage labels.
+2. Check how shared storage is reported (one series per node?) before building the storage alert.
 3. Confirm units per section 4 against the PVE UI (memory, disk, network, uptime, node CPU).
 4. Measure the real push interval (series point spacing in the graph).
 5. Re-check names after a PVE upgrade.
