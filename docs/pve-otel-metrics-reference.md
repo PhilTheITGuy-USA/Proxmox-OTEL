@@ -54,42 +54,59 @@ Seen in the lab (53 names, confirmed by a count query):
 ## 4. Units and scale
 | Metric | Observed or expected | Status |
 |---|---|---|
-| `proxmox_vm_cpu` | 0–1 ratio of the guest's allotted CPU. Lab: graph ≈ 0.12–0.13 versus the PVE UI 13.34% for the same guest at the same time. Multiply by 100 for percent. | verified (one guest, one moment) |
-| `proxmox_vm_mem`, `maxmem`, `disk`, `maxdisk` | bytes | ⚠ confirm against the PVE UI |
-| `proxmox_vm_netin_total`, `netout_total`, `diskread_total`, `diskwrite_total` | cumulative byte counters; use `rate()` | ⚠ |
-| `proxmox_vm_uptime`, `proxmox_node_uptime` | seconds | ⚠ |
+Verification on 2026-10-27 compared LM Explore with the PVE Datacenter → Search view (the same moment, within sampling differences).
+
+| Metric | Observed or expected | Status |
+|---|---|---|
+| `proxmox_vm_cpu` | 0–1 ratio of the guest's allotted CPU; multiply by 100. `nvr01`: graph ≈ 0.12–0.13 versus PVE 13.34% | verified (one guest) |
+| `proxmox_vm_mem`, `proxmox_vm_maxmem` | bytes. `nvr01`: mem 1,051,820,032 (1003.1 MiB; PVE 1003.39 MiB), maxmem 4,294,967,296 (4 GiB); `mem / maxmem * 100` = 24.5%, PVE 24.5% | verified |
+| `proxmox_vm_disk`, `proxmox_vm_maxdisk` | bytes. `nvr01`: `disk / maxdisk * 100` = 15.905%, PVE 15.9% | verified |
+| `proxmox_vm_uptime`, `proxmox_node_uptime` | seconds. `nvr01`: `uptime / 3600` = 202.7 h (8 d 10:42), PVE 8 days 10:41 | verified for guests; node uptime ⚠ |
+| `proxmox_node_memory_memused` / `memtotal` | bytes; `* 100` gives percent. Node-A ≈ 59%, Node-B ≈ 48%, PVE 59.1% and 47.9% (lab storage is LVM, not ZFS, so ZFS ARC handling is not tested) | verified |
+| `proxmox_node_cpustat_cpu` | 0–1 ratio; `* 100` gives percent. Node-A ≈ 11%, Node-B ≈ 1.3%, PVE 10.6% and 1.3% | verified |
+| `proxmox_node_cpustat_used` | **not** a usage ratio (about 3,000,000,000 for Node-A); do not use for CPU % | observed |
+| `proxmox_storage_used`, `total`, `avail` | bytes. `local-lvm` Node-A: 116,923,328,731 = 116.92 GB, PVE 116.92 of 362.78 (32.2%); `media01-usb` ≈ 83%, `local` ≈ 11% on Node-A, matching PVE | verified |
+| `proxmox_vm_netin_total`, `netout_total`, `diskread_total`, `diskwrite_total` | cumulative counters; `rate(...[5m])` works (`nvr01` netin ≈ 315,000 per second) | rate verified; unit (bytes) ⚠ |
 | `proxmox_node_cpustat_*_total` | cumulative CPU time counters (seconds in community lists) | ⚠ |
-| `proxmox_node_memory_*` | bytes | ⚠ |
-| `proxmox_storage_*` sizes | bytes (lab `used`: 6,691,302,690,816 for `media01-usb`, about 6.1 TiB, plausible for a USB disk) | ⚠ compare with the PVE UI |
 | `proxmox_storage_active`, `enabled`, `shared` | 0/1 flags | ⚠ |
 | PSI `pressure*` | percentage-style values (community) | ⚠ |
 
 ## 5. Starter queries (PromQL-compatible; run in Explore)
-Only the first has been confirmed on lab data. The rest are candidates to run and check against the PVE UI before they become dashboard widgets or alert rules.
+Queries marked ✔ were run on lab data and matched the PVE UI. Those marked ⚠ are candidates that still need running before they become dashboard widgets or alert rules.
 ```
-# Guest CPU % (verified scale)
+# Guest CPU %                                                         ✔
 proxmox_vm_cpu * 100
 
-# Guest CPU % by cluster and guest
-avg by (proxmox_cluster, vmid, name) (proxmox_vm_cpu) * 100          # ⚠
+# Guest memory used %                                                 ✔
+proxmox_vm_mem / proxmox_vm_maxmem * 100
 
-# Guest memory used %
-proxmox_vm_mem / proxmox_vm_maxmem * 100                             # ⚠
+# Guest disk used %                                                   ✔
+proxmox_vm_disk / proxmox_vm_maxdisk * 100
 
-# Guest network throughput (bytes/s)
-rate(proxmox_vm_netin_total[5m])                                     # ⚠
+# Guest uptime in hours                                               ✔
+proxmox_vm_uptime / 3600
 
-# Storage used % (labels match, so the division pairs per node and storage)
-proxmox_storage_used / proxmox_storage_total * 100                   # ⚠
+# Guest network in (per second)                                       ✔ rate works
+rate(proxmox_vm_netin_total[5m])
 
-# Storage inactive
-proxmox_storage_active == 0                                          # ⚠
+# Node CPU %                                                          ✔
+proxmox_node_cpustat_cpu * 100
 
-# Node memory used % (check how memused treats ZFS ARC first)
-proxmox_node_memory_memused / proxmox_node_memory_memtotal * 100     # ⚠
+# Node memory used %                                                  ✔
+proxmox_node_memory_memused / proxmox_node_memory_memtotal * 100
 
-# Guests per node and type
-count by (proxmox_cluster, node, type) (proxmox_vm_uptime)           # ⚠
+# Storage used % (labels match, so the division pairs per node and storage)   ✔
+proxmox_storage_used / proxmox_storage_total * 100
+
+# Worst node per storage (aggregation works; only for shared storage, because
+# non-shared storages with the same ID on several nodes, like `local`, would merge)   ✔
+max by (proxmox_cluster, storage) (proxmox_storage_used / proxmox_storage_total * 100)
+
+# Storage inactive                                                    ⚠
+proxmox_storage_active == 0
+
+# Guests per node and type                                            ⚠
+count by (proxmox_cluster, node, type) (proxmox_vm_uptime)
 ```
 Alert candidates (to build and trigger in test-plan Phase 5): node down (series absent), storage used over 85%, guest CPU sustained high, storage inactive.
 
@@ -101,7 +118,7 @@ Not possible from these metrics alone. LM topology maps are built from resources
 ## 7. Open checks
 1. Name counts are confirmed by count queries: node 53, guest 22, storage 6 (QEMU balloon and block-stat names are in addition to the guest 22).
 2. Check how shared storage is reported (one series per node?) before building the storage alert.
-3. Confirm units per section 4 against the PVE UI (memory, disk, network, uptime, node CPU).
+3. Units still to confirm against the PVE UI: network and disk I/O counters (bytes), node uptime, node CPU time counters, PSI values, and the `active`/`enabled`/`shared` flags.
 4. Measure the real push interval (series point spacing in the graph).
 5. Re-check names after a PVE upgrade.
 
