@@ -47,7 +47,7 @@ processors:
 
 exporters:
   otlphttp/lm:
-    endpoint: ${env:LM_OTLP_ENDPOINT}     # from More → OTel Metrics (see enable-pve-otel-metrics.md)
+    metrics_endpoint: ${env:LM_OTLP_ENDPOINT}   # full URL, e.g. https://<portalname>.logicmonitor.com/rest/api/v1/metrics (see enable-pve-otel-metrics.md); `endpoint` would append /v1/metrics again
     headers:
       Authorization: Bearer ${env:LM_OTLP_BEARER}
     compression: gzip

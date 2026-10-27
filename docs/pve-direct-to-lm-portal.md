@@ -16,7 +16,7 @@ Status: written from LogicMonitor documentation and the official PVE API schema;
 ## 2. Find the OTLP endpoint and create the bearer token (LM portal)
 1. Sign in to `https://<portalname>.logicmonitor.com/`.
 2. Go to **More → OTel Metrics → Configure → View connection details** (page title: *Connect an OTel Metrics Source*).
-3. Copy the **OTLP Ingestion Endpoint**. Note its scheme, host, port and path (used in section 4). The host is expected to be on your portal domain ⚠; use exactly what the page shows.
+3. Copy the **OTLP Ingestion Endpoint**. It has the form `https://<portalname>.logicmonitor.com/rest/api/v1/metrics` (no port shown, so TCP 443). Note its scheme, host, port and path (used in section 4) and use exactly what the page shows.
 4. In **User**, choose the dedicated API-only user.
 5. Copy the **Bearer Token** into a password manager. Anyone with it can send telemetry to your portal; don't paste it into chat, tickets or git.
 6. Protocol: **OTLP HTTP/protobuf**. Header: `Authorization: Bearer <token>`.
@@ -42,10 +42,10 @@ Use a unique `cluster` value per cluster. If `OTEL_HEADERS` is longer than 1024 
 
 | PVE field | Value for `<portalname>` |
 |---|---|
-| `--server` | host from the endpoint (DNS name) ⚠ |
-| `--port` | port from the endpoint (443 if none shown) |
+| `--server` | `<portalname>.logicmonitor.com` (hostname only: no `https://`, no path) |
+| `--port` | `443` (the endpoint shows no port; the PVE GUI default of 4318 is wrong for the LM portal) |
 | `--otel-protocol` | `https` |
-| `--otel-path` | path from the endpoint (PVE default is `/v1/metrics`) ⚠ |
+| `--otel-path` | `/rest/api/v1/metrics` (not PVE's default `/v1/metrics`, which returns 404 on the portal) |
 | `--otel-compression` | `gzip` |
 | `--otel-verify-ssl` | `1` (keep certificate verification on) |
 | `--otel-timeout` | `5` (default; 1–10 allowed) |
@@ -57,8 +57,8 @@ The definition is cluster-wide: one entry covers all nodes in the cluster.
 ```bash
 pvesh create /cluster/metrics/server/lm-otlp \
   --type opentelemetry \
-  --server <host from endpoint> --port 443 \
-  --otel-protocol https --otel-path <path from endpoint> \
+  --server <portalname>.logicmonitor.com --port 443 \
+  --otel-protocol https --otel-path /rest/api/v1/metrics \
   --otel-compression gzip --otel-verify-ssl 1 \
   --otel-headers "$OTEL_HEADERS" \
   --otel-resource-attributes "$OTEL_ATTRS"
@@ -67,8 +67,8 @@ The CLI is expected to take the base64 strings as-is ⚠ (community posts show o
 
 **GUI**
 1. Datacenter → **Metric Server → Add → OpenTelemetry**.
-2. Fill **Name** (`lm-otlp`), **Server**, **Port**, **Protocol**, **Path**; keep **Verify SSL** on.
-3. Add headers/resource attributes if the form offers them; otherwise add them afterwards with `pvesh set` (section 7).
+2. Fill **Name** (`lm-otlp`), **Server** (`<portalname>.logicmonitor.com`, hostname only), **Port** (`443`; the dialog defaults to 4318), **Protocol** (`HTTPS`), **Path** (`/rest/api/v1/metrics`); keep **Enabled**, **Verify SSL** and **Gzip** on.
+3. Expand **Advanced JSON Configuration** and add the headers (`{"Authorization":"Bearer <token>"}`) and resource attributes (`{"cluster":"<cluster-name>"}`) as plain JSON; the GUI is expected to base64-encode them itself, so don't paste the base64 values from section 3 here ⚠. If the section doesn't accept them, add them afterwards with `pvesh set` (section 7).
 4. Click **Create**.
 
 The config is stored in `/etc/pve/status.cfg`. The base64 headers, including the bearer token, are readable by cluster admins.
@@ -82,7 +82,7 @@ The config is stored in `/etc/pve/status.cfg`. The base64 headers, including the
 read -rs LM_TOKEN
 curl -sS -o /dev/null -w '%{http_code}\n' -X POST \
   -H "Authorization: Bearer $LM_TOKEN" -H 'Content-Type: application/x-protobuf' \
-  --data-binary '' '<full OTLP endpoint>' ; unset LM_TOKEN
+  --data-binary '' 'https://<portalname>.logicmonitor.com/rest/api/v1/metrics' ; unset LM_TOKEN
 ```
 
 ## 7. Roll out to more clusters, change, pause, remove
@@ -100,7 +100,7 @@ pvesh delete /cluster/metrics/server/lm-otlp               # remove
 
 ## 8. Troubleshooting
 - `401/403`: wrong or regenerated token, or the user lacks OTel Metrics permission.
-- `404`: wrong path; copy it exactly from **View connection details**.
+- `404`: wrong path. PVE's default `/v1/metrics` is not the portal path; use `/rest/api/v1/metrics` (copy it from **View connection details**).
 - Nothing in LM and no errors: feature flag not enabled, or the node can't reach port 443 (`curl -I https://<portalname>.logicmonitor.com/`).
 - Timeouts: raise `--otel-timeout` (max 10) or reduce body size with `--otel-max-body-size`.
 - Headers rejected for length: token too long for the 1024-character field; use a gateway.

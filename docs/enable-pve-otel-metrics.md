@@ -46,7 +46,7 @@ Example (placeholder): `https://<host>:<port>/<path>`
 | `--server` | host (DNS name or IP) |
 | `--port` | port (443 if none shown) |
 | `--otel-protocol` | `https` (or `http` for an internal gateway) |
-| `--otel-path` | path (default `/v1/metrics`; use exactly what LM shows) ⚠ |
+| `--otel-path` | direct to LM: `/rest/api/v1/metrics` (the portal path; PVE's default `/v1/metrics` returns 404); gateway: `/v1/metrics` |
 | `--otel-compression` | `gzip` |
 
 For a gateway: `--server <docker-host-ip> --port 4318 --otel-protocol http --otel-path /v1/metrics`, and omit the bearer header (the gateway holds the token).
