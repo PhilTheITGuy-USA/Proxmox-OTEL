@@ -1,99 +1,85 @@
-# Enable OpenTelemetry metrics in Proxmox VE → LogicMonitor
+# Enable OpenTelemetry metrics in Proxmox VE (PVE side)
 
-> **Direct push to the LM portal currently fails with 415** (PVE sends JSON; LM needs protobuf). For now point PVE at the gateway: `--server <gateway host> --port 4318 --otel-protocol http --otel-path /v1/metrics`, with no bearer header (the gateway holds the token). See `deploy-lm-otel-collector-docker.md`.
+Purpose: point a PVE cluster's OpenTelemetry metric server at the LM OTel Collector gateway. This is the PVE half of the procedure; build the gateway first with `deploy-lm-otel-collector-docker.md`.
 
-Purpose: turn on PVE's OpenTelemetry metric server, find LogicMonitor's OTLP endpoint, and create the bearer token.
+Status: the GUI steps in section 3 were verified in the lab on 2026-10-27 (PVE 9.2.2 and 9.2.3, two nodes). The CLI form in section 4 is written from the PVE API schema and is **not yet tested** (marked ⚠).
 
-Status: written from LogicMonitor docs and the official PVE API schema; **not yet tested in the lab**. Items marked ⚠ are verified in test-plan Phase 0/2.
+## Why a gateway
+PVE's OTLP plugin sends **OTLP JSON** only. LM's OTLP metrics endpoint accepts **protobuf with a Bearer token**, so a direct push fails with `415 Unsupported Media Type` (observed 2026-10-27). The gateway accepts PVE's JSON with no token, converts it to protobuf and forwards it to LM, where it holds the token. PVE therefore never needs the LM token, which also avoids PVE's 1024-character header limit. The direct route is kept in `pve-direct-to-lm-portal.md` for when PVE adds protobuf (Proxmox Bugzilla #7592).
+
+```
+PVE metric server ──OTLP/HTTP JSON :4318──► LM OTel Collector (Docker) ──protobuf + Bearer──► LM
+```
 
 ## 1. Prerequisites
-- Proxmox VE 9.x with the OpenTelemetry metric server type (Datacenter → Metric Server → Add shows "OpenTelemetry"). Check: `pveversion`.
-- LM portal with the **OpenTelemetry Metrics** feature enabled (feature flag) ⚠.
-- An LM user with **Manage** permission for OpenTelemetry Metrics (Settings role permissions). Query users need **Read**.
-- Network path: PVE nodes → LM (`https://<portalname>.logicmonitor.com`, 443) or → your gateway (see `deploy-lm-otel-collector-docker.md`).
+- Proxmox VE 9.x with the OpenTelemetry metric server type. Check: `pveversion`, and Datacenter → Metric Server → Add offers **OpenTelemetry**.
+- The gateway is running and reachable from every PVE node on its LAN IP, TCP 4318 (see the gateway runbook, sections 4 and 5, for the container and the firewall rule).
+- Root (or `Sys.Modify` on `/`) on the cluster.
 
-## 2. Find the OTLP endpoint and create the bearer token (LM portal)
-1. Sign in to LM and go to **More → OTel Metrics**.
-2. Select **Configure → View connection details** (title: *Connect an OTel Metrics Source*).
-3. Copy the **OTLP Ingestion Endpoint**. Record its scheme, host, port and path separately (section 4).
-4. In **User**, choose the LM user that authenticates ingestion (the list depends on your permissions). Use a dedicated API-only user with minimum rights.
-5. Copy the **Bearer Token**. Treat it like a password: anyone holding it can send telemetry to your portal. Store it in a password manager, not in chat, tickets or git.
-6. Protocol to use: **OTLP HTTP/protobuf**. Header: `Authorization: Bearer <token>`.
-
-Rotation: generating a new token invalidates the old one; update every sender (all PVE clusters and gateways) afterward.
-
-## 3. CLI only: build the base64 `otel-headers` value
-> **GUI users: skip this section.** The GUI's header and attribute fields take plain JSON typed in as is (section 5). Never paste these shell commands into a PVE field.
-
-PVE takes headers as **JSON, base64-encoded, max 1024 characters** (official API schema).
-
-Linux/macOS (or a PVE node):
+## 2. Check the path from a PVE node
+From any node, with `<gateway-ip>` the Docker host's LAN IP:
 ```bash
-printf '%s' '{"Authorization":"Bearer <TOKEN>"}' | base64 -w0     # macOS: base64 without -w0
+curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/json" -d '{}' http://<gateway-ip>:4318/v1/metrics
 ```
-Windows PowerShell:
-```powershell
-[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('{"Authorization":"Bearer <TOKEN>"}'))
-```
-Check the result is ≤ 1024 characters ⚠ (a very long token may not fit; if so, use a gateway).
+Expect `200`. Anything else is a network, firewall or gateway problem; fix it before continuing.
 
-Optional resource attributes (also base64 JSON, ≤ 1024 chars), for example to label the cluster:
-```bash
-printf '%s' '{"cluster":"lab"}' | base64 -w0
-```
-
-## 4. Split the endpoint into PVE fields
-Example (placeholder): `https://<host>:<port>/<path>`
-
-| PVE field | Value |
-|---|---|
-| `--server` | host (DNS name or IP) |
-| `--port` | port (443 if none shown) |
-| `--otel-protocol` | `https` (or `http` for an internal gateway) |
-| `--otel-path` | direct to LM: `/rest/api/v1/metrics` (the portal path; PVE's default `/v1/metrics` returns 404); gateway: `/v1/metrics` |
-| `--otel-compression` | `gzip` |
-
-For a gateway: `--server <docker-host-ip> --port 4318 --otel-protocol http --otel-path /v1/metrics`, and omit the bearer header (the gateway holds the token).
-
-## 5. Add the metric server in Proxmox VE
-The definition is cluster-wide: one entry covers all nodes.
-
-**GUI**
+## 3. Add the metric server (GUI)
+The definition is cluster-wide: one entry covers every node.
 1. Datacenter → **Metric Server → Add → OpenTelemetry**.
-2. Fill **Name** (for example `lm-otlp`), **Server**, **Port**, **Protocol**, **Path**, and enable **Verify SSL** for LM.
-3. Expand **Advanced JSON Configuration**. In **HTTP Headers (JSON)** type `{"Authorization":"Bearer <token>"}` (your real token) and in **Resource Attributes (JSON)** type `{"cluster":"<cluster-name>"}`. One flat JSON object per field, typed as is: no shell commands, no base64 ⚠.
+2. Fill the fields:
+
+| Field | Value |
+|---|---|
+| Name | `lm-otlp` (no spaces) |
+| Server | gateway host name or IP only (no scheme, no port) |
+| Port | `4318` |
+| Protocol | `HTTP` |
+| Path | `/v1/metrics` |
+| Verify SSL | off (the gateway listens on plain HTTP) |
+
+3. Expand **Advanced JSON Configuration**. Leave **HTTP Headers** empty. In **Resource Attributes (JSON)** type `{"cluster":"<cluster-name>"}` as plain JSON, typed as is: no shell commands, no base64. This `cluster` value is the label to use for site or environment names in LM.
 4. Click **Create**.
 
-**CLI (any node)**
+PVE adds its own `proxmox_cluster` and `node` labels, so clusters stay separate even without `cluster`, but set it anyway for readable names.
+
+## 4. Add the metric server (CLI) ⚠
 ```bash
 pvesh create /cluster/metrics/server/lm-otlp \
   --type opentelemetry \
-  --server <host> --port 443 \
-  --otel-protocol https --otel-path <path> \
-  --otel-compression gzip \
-  --otel-verify-ssl 1 \
-  --otel-headers '<base64 from section 3>' \
-  --otel-resource-attributes '<base64 from section 3>'
+  --server <gateway-ip> --port 4318 \
+  --otel-protocol http --otel-path /v1/metrics \
+  --otel-verify-ssl 0 \
+  --otel-resource-attributes "$(printf '%s' '{"cluster":"<cluster-name>"}' | base64 -w0)"
 ```
-Defaults if omitted: timeout 5 s (1–10), max body 10,000,000 bytes, gzip, path `/v1/metrics`. The CLI accepts the base64 string as-is ⚠ (the community reports plain-JSON forms; confirm in Phase 2).
+The API schema says `otel-resource-attributes` is base64-encoded JSON (max 1024 characters). Defaults: compression gzip, timeout 5 s (1 to 10), max body 10,000,000 bytes. Confirm the CLI accepts this form before relying on it in automation. The config is stored in `/etc/pve/status.cfg`.
 
-The config is stored in `/etc/pve/status.cfg`; the base64 headers (including the bearer token) are readable by cluster admins.
+## 5. Verify
+1. On a node: `journalctl -u pvestatd -n 50 --no-pager`. No OTel errors means the push is working (lab result: none).
+2. On the gateway: `docker logs --tail 50 lmotel` shows the receiver working without export errors.
+3. In LM: **More → OTel Metrics → Metrics Explorer**, run `proxmox_node_uptime`. Series appear after the first push (the push interval is not yet measured; see the open checks in the metrics reference).
+4. Spot-check values against the PVE UI with the queries in `pve-otel-metrics-reference.md` (CPU values are 0 to 1 ratios, so multiply by 100).
 
-## 6. Verify
-1. On a node: `journalctl -u pvestatd -n 50 --no-pager` — look for HTTP errors (401/403 = token, 404 = path, TLS errors = verify-ssl/CA).
-2. In LM: **Explore**, query `{__name__=~"proxmox_.*"}` (PromQL-compatible). Expect `proxmox_node_*`, `proxmox_vm_*`, `proxmox_storage_*` with `node`, `vmid`, `type` labels. Metric names and push interval are community-reported ⚠.
-3. Spot-check a few values against the PVE UI (CPU fields may be 0–1 ratios).
-
-## 7. Change, pause, remove
+## 6. Change, pause, remove
 ```bash
-pvesh get    /cluster/metrics/server                     # list
-pvesh set    /cluster/metrics/server/lm-otlp --disable 1 # pause
-pvesh set    /cluster/metrics/server/lm-otlp --otel-headers '<new base64>'   # rotate token
-pvesh delete /cluster/metrics/server/lm-otlp             # remove
+pvesh get    /cluster/metrics/server                       # list
+pvesh set    /cluster/metrics/server/lm-otlp --disable 1   # pause
+pvesh set    /cluster/metrics/server/lm-otlp --server <new-gateway-ip>   # move to another gateway
+pvesh delete /cluster/metrics/server/lm-otlp               # remove
 ```
+Rotating the LM bearer token changes only the gateway's `lm.env`; nothing changes on PVE.
+
+## 7. Troubleshooting
+| Symptom | Cause and fix |
+|---|---|
+| Create fails with `415` | The Server field points at the LM portal, not the gateway. Point it at the gateway. |
+| Create fails or times out | Gateway not reachable: check the container, the Windows or host firewall rule for TCP 4318, and the `curl` test in section 2. |
+| Name rejected | Names cannot contain spaces. Use `lm-otlp`. |
+| No `proxmox_*` series in LM | Check `docker logs lmotel` for 401 (bad token in `lm.env`) or 404 (wrong exporter endpoint), and wait for the first push. |
+| `cluster` label missing | Resource Attributes was empty or invalid JSON; edit the metric server and re-enter it. |
 
 ## References
-- [OpenTelemetry Metrics Overview](https://www.logicmonitor.com/support/opentelemetry-metrics-overview)
-- [Configure OpenTelemetry Metrics Source Connection](https://www.logicmonitor.com/support/configure-opentelemetry-metrics-source-connection)
-- [Proxmox VE API viewer: /cluster/metrics/server](https://pve.proxmox.com/pve-docs/api-viewer/)
+- `deploy-lm-otel-collector-docker.md` (gateway, token, firewall)
+- `pve-otel-metrics-reference.md` (metric names, labels, units, queries)
 - [Proxmox External Metric Server](https://pve.proxmox.com/wiki/External_Metric_Server)
+- [Proxmox VE API viewer: /cluster/metrics/server](https://pve.proxmox.com/pve-docs/api-viewer/)
+- [OpenTelemetry Metrics Overview (LM)](https://www.logicmonitor.com/support/opentelemetry-metrics-overview)

@@ -22,6 +22,8 @@ Other rules to build the same way (run each query first, then set the threshold)
 | `PVE_Node_CPU_High` | `proxmox_node_cpustat_cpu * 100` | above 90 | Warning |
 | `PVE_Guest_CPU_High` | `proxmox_vm_cpu * 100` | above 90 | Warning |
 
+Built and confirmed in the lab on 2026-10-27: all four rules appear in the `Proxmox-VE` group. To add a rule to an existing group, expand the group in **Alert Configurations** and use the **+** at the right of its **Alerts** list (the group's row icon is **Add SDT**, not add rule). The form then has the group preset; choose **Raw Query**, enter the query, set the threshold and severity, and click **Add**. If the first **Add** click is ignored or shows an error toast, wait a few seconds and click again, then check the list to be sure the rule was saved once.
+
 Not yet verified: storage-inactive (`proxmox_storage_active`) and node-down (absent series) alerts.
 
 ## 3. Dashboard: "Proxmox VE OTel"
